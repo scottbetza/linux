@@ -8,6 +8,7 @@ sudo -i -u scott
 
 mkdir -p ~/.ssh
 
+#add ssh public key
 echo ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCaopRFmsw8rvWo61DBF1KwSisFY9E9zwUhdY12Y0ZwQGsWyuSfTx+BRFGoqepykFP9BLk8BZjcoLjfpslHUVGLjsE6bJFZQVsLuIEI5gJR94JMtZqUm7DbSY5q9PI5zHIKRj32gs8VTGxcJ1Hh46vX8Fn17RQE3Mo/NIpXYFw01reBAorveu8+cn2WbXOlaaybgHAyOwalBS04/bduHXXM8RKR8klxsvcHq4ht6H7wH63hsD4573lOfCoJFfwCZ4HsW7z/kZtc5KzrlEvRvuTAVOHU0W8vIUvkiciNFkrWKzI6/G5HpMxdWc+QRpzCPtMxIBZ6knyxD16wO5V5NWYTxYgaq5YnkQ9ZFzyvcS7N96qLDnmE+BzZJFoxZVIyU8mPm43r4Nb+gc9p9AvraE+eaPnEfTqZaCKxov+zwCvx3KAKUjnBdrCugDxubgTgUj4iGGxFtksJcTD07nv/Z+aK5iGlIsR6T+BqXtkJMOJYxhR5OraK5tPmCfU89l4Tmk0= scott@ip-172-31-28-231 >> ~/.ssh/authorized_keys
 
 chmod -R go= ~/.ssh
