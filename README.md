@@ -1,2 +1,1 @@
-# my-first-repository
-my first repository!!
+Repository to store commands when setting up linux
