@@ -1,0 +1,106 @@
+#!/bin/bash
+
+# SSH User Setup Script
+# Run this as root on the server
+# Run "nano setup_ssh_user.sh" and paste thise script
+# Then make it executable "chmod +x setup_ssh_user.sh"
+# Then run it "./setup_ssh_user.sh"
+
+set -e  # Exit on any error
+
+# Configuration
+USERNAME="scott"
+PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHsRCQz1BT6Z4g2pmOYJKyl/OLDZJ6zpFzpAgoH0xxqm ssh-test-ubuntu"
+
+echo "=== Starting SSH user setup for $USERNAME ==="
+
+# Check if running as root
+if [ "$EUID" -ne 0 ]; then
+    echo "ERROR: This script must be run as root"
+    exit 1
+fi
+
+# Create user (skip if already exists)
+if id "$USERNAME" &>/dev/null; then
+    echo "User $USERNAME already exists, skipping creation..."
+else
+    echo "Creating user $USERNAME..."
+    adduser --gecos "" "$USERNAME"
+    echo ""
+    echo "Note: You'll use SSH keys to login, but a password is required by the system."
+fi
+
+# Install sudo if not present
+if ! command -v sudo &> /dev/null; then
+    echo "Installing sudo..."
+    apt update && apt install -y sudo
+fi
+
+# Add user to sudo group
+echo "Adding $USERNAME to sudo group..."
+usermod -aG sudo "$USERNAME"
+
+# Create .ssh directory
+echo "Setting up SSH key authentication..."
+mkdir -p /home/"$USERNAME"/.ssh
+chmod 700 /home/"$USERNAME"/.ssh
+
+# Add public key to authorized_keys
+echo "$PUBLIC_KEY" > /home/"$USERNAME"/.ssh/authorized_keys
+
+# Set correct permissions
+chmod 600 /home/"$USERNAME"/.ssh/authorized_keys
+chown -R "$USERNAME":"$USERNAME" /home/"$USERNAME"/.ssh
+
+echo "SSH key configured successfully!"
+
+# Backup original sshd_config
+echo "Backing up SSH config..."
+cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup.$(date +%Y%m%d_%H%M%S)
+
+# Configure SSH settings
+echo "Configuring SSH daemon..."
+
+# Function to update or add a setting in sshd_config
+update_ssh_setting() {
+    local setting="$1"
+    local value="$2"
+    if grep -q "^#*${setting}" /etc/ssh/sshd_config; then
+        # Setting exists (commented or not), replace it
+        sed -i "s/^#*${setting}.*/${setting} ${value}/" /etc/ssh/sshd_config
+    else
+        # Setting doesn't exist, add it
+        echo "${setting} ${value}" >> /etc/ssh/sshd_config
+    fi
+}
+
+update_ssh_setting "PermitRootLogin" "no"
+update_ssh_setting "PubkeyAuthentication" "yes"
+update_ssh_setting "PasswordAuthentication" "no"
+update_ssh_setting "PermitEmptyPasswords" "no"
+update_ssh_setting "KbdInteractiveAuthentication" "no"
+update_ssh_setting "UsePAM" "no"
+update_ssh_setting "AuthenticationMethods" "publickey"
+update_ssh_setting "AllowUsers" "scott"
+
+# Test SSH configuration
+echo "Testing SSH configuration..."
+sshd -t
+
+if [ $? -eq 0 ]; then
+    echo "SSH configuration is valid!"
+    echo "Restarting SSH service..."
+    systemctl restart ssh
+    echo ""
+    echo "=== Setup complete! ==="
+    echo "User $USERNAME can now SSH in with key authentication"
+    echo "Password authentication and root login are disabled"
+    echo ""
+    echo "IMPORTANT: Test SSH connection in a NEW terminal before closing this one!"
+    echo "If something goes wrong, your backup config is at:"
+    echo "/etc/ssh/sshd_config.backup.*"
+else
+    echo "ERROR: SSH configuration test failed!"
+    echo "Changes were not applied. Please check the configuration."
+    exit 1
+fi
