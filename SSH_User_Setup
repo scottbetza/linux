@@ -81,7 +81,7 @@ update_ssh_setting "PermitEmptyPasswords" "no"
 update_ssh_setting "KbdInteractiveAuthentication" "no"
 update_ssh_setting "UsePAM" "no"
 update_ssh_setting "AuthenticationMethods" "publickey"
-update_ssh_setting "AllowUsers" "scott"
+update_ssh_setting "AllowUsers" "$USERNAME"
 
 # Test SSH configuration
 echo "Testing SSH configuration..."
