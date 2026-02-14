@@ -2,17 +2,12 @@
 
 # SSH User Setup Script
 # Run this as root on the server
-# Run "nano setup_ssh_user.sh" and paste thise script
-# Then make it executable "chmod +x setup_ssh_user.sh"
-# Then run it "./setup_ssh_user.sh"
+# Usage: ./setup_ssh_user.sh <username> <password> "<public_key>"
 
 set -e  # Exit on any error
 
-# Configuration
-USERNAME="scott"
-PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHsRCQz1BT6Z4g2pmOYJKyl/OLDZJ6zpFzpAgoH0xxqm ssh-test-ubuntu"
-
-echo "=== Starting SSH user setup for $USERNAME ==="
+echo "=== SSH User Setup Script ==="
+echo ""
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
@@ -20,14 +15,55 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# Check for required arguments
+if [ $# -ne 3 ]; then
+    echo "ERROR: Missing required arguments"
+    echo "Usage: $0 <username> <password> \"<public_key>\""
+    echo ""
+    echo "Example:"
+    echo "  $0 scott MyPassword123 \"ssh-ed25519 AAAAC3Nza... user@host\""
+    exit 1
+fi
+
+# Get arguments
+USERNAME="$1"
+USER_PASSWORD="$2"
+PUBLIC_KEY="$3"
+
+# Validate configuration
+if [ -z "$USERNAME" ]; then
+    echo "ERROR: Username cannot be empty"
+    exit 1
+fi
+
+if [ -z "$USER_PASSWORD" ]; then
+    echo "ERROR: Password cannot be empty"
+    exit 1
+fi
+
+if [ -z "$PUBLIC_KEY" ]; then
+    echo "ERROR: Public key cannot be empty"
+    exit 1
+fi
+
+# Validate public key format (basic check)
+if [[ ! "$PUBLIC_KEY" =~ ^(ssh-rsa|ssh-ed25519|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521) ]]; then
+    echo "ERROR: Invalid public key format"
+    exit 1
+fi
+
+echo "=== Starting SSH user setup for $USERNAME ==="
+
 # Create user (skip if already exists)
 if id "$USERNAME" &>/dev/null; then
     echo "User $USERNAME already exists, skipping creation..."
 else
     echo "Creating user $USERNAME..."
-    adduser --gecos "" "$USERNAME"
-    echo ""
-    echo "Note: You'll use SSH keys to login, but a password is required by the system."
+    # Create user without prompting
+    adduser --disabled-password --gecos "" "$USERNAME"
+    # Set the password non-interactively
+    echo "$USERNAME:$USER_PASSWORD" | chpasswd
+    echo "User created with password."
 fi
 
 # Install sudo if not present
@@ -65,9 +101,11 @@ echo "Configuring SSH daemon..."
 update_ssh_setting() {
     local setting="$1"
     local value="$2"
-    if grep -q "^#*${setting}" /etc/ssh/sshd_config; then
-        # Setting exists (commented or not), replace it
-        sed -i "s/^#*${setting}.*/${setting} ${value}/" /etc/ssh/sshd_config
+    # Match lines that are either uncommented settings or commented with a single #
+    # This avoids matching lines in comment blocks (##, ###, etc.)
+    if grep -q "^#\?${setting}[[:space:]]" /etc/ssh/sshd_config; then
+        # Setting exists (commented or not), replace the first occurrence
+        sed -i "0,/^#\?${setting}[[:space:]].*/s/^#\?${setting}[[:space:]].*/${setting} ${value}/" /etc/ssh/sshd_config
     else
         # Setting doesn't exist, add it
         echo "${setting} ${value}" >> /etc/ssh/sshd_config
@@ -79,7 +117,7 @@ update_ssh_setting "PubkeyAuthentication" "yes"
 update_ssh_setting "PasswordAuthentication" "no"
 update_ssh_setting "PermitEmptyPasswords" "no"
 update_ssh_setting "KbdInteractiveAuthentication" "no"
-update_ssh_setting "UsePAM" "no"
+update_ssh_setting "UsePAM" "yes"
 update_ssh_setting "AuthenticationMethods" "publickey"
 update_ssh_setting "AllowUsers" "$USERNAME"
 
