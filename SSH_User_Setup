@@ -2,7 +2,14 @@
 
 # SSH User Setup Script
 # Run this as root on the server
-# Usage: ./setup_ssh_user.sh <username> <password> "<public_key>"
+#
+# Local usage: ./setup_ssh_user.sh <username> <password> "<public_key>"
+# Remote usage: curl -fsSL <script_url> | bash -s -- <username> <password> "<public_key>"
+#
+# Example:
+#   ./setup_ssh_user.sh scott MyPassword123 "ssh-ed25519 AAAAC3Nza... user@host"
+#
+# Note: Password will be visible in process list temporarily. Run on trusted systems only.
 
 set -e  # Exit on any error
 
@@ -18,10 +25,13 @@ fi
 # Check for required arguments
 if [ $# -ne 3 ]; then
     echo "ERROR: Missing required arguments"
-    echo "Usage: $0 <username> <password> \"<public_key>\""
+    echo "Usage: <username> <password> \"<public_key>\""
     echo ""
-    echo "Example:"
-    echo "  $0 scott MyPassword123 \"ssh-ed25519 AAAAC3Nza... user@host\""
+    echo "Local usage:"
+    echo "  ./setup_ssh_user.sh scott MyPassword123 \"ssh-ed25519 AAAAC3Nza... user@host\""
+    echo ""
+    echo "Remote usage:"
+    echo "  curl -fsSL <script_url> | bash -s -- scott MyPassword123 \"ssh-ed25519 AAAAC3Nza... user@host\""
     exit 1
 fi
 
@@ -123,9 +133,7 @@ update_ssh_setting "AllowUsers" "$USERNAME"
 
 # Test SSH configuration
 echo "Testing SSH configuration..."
-sshd -t
-
-if [ $? -eq 0 ]; then
+if sshd -t; then
     echo "SSH configuration is valid!"
     echo "Restarting SSH service..."
     systemctl restart ssh
